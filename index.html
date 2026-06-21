@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Entrena tu Memoria</title>
+<!-- Chart.js CDN oficial optimizado para producción en navegadores y móviles -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   /* ===================================================================
      RESET Y VARIABLES DE TEMA (claro / oscuro vía atributo data-theme)
@@ -126,6 +128,19 @@
   .modo-desc { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
   .modo-flecha { color: var(--text-secondary); font-size: 17px; }
 
+  /* Botón secundario "Ver Estadísticas" — entrada al módulo de analítica */
+  .btn-estadisticas {
+    margin-top: 16px; width: 100%; background: none; border: none;
+    color: var(--azul-oscuro); font-weight: 700; font-size: 13.5px;
+    padding: 11px; border-radius: 12px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background 0.2s ease, transform 0.15s ease;
+    font-family: inherit;
+  }
+  .btn-estadisticas:hover { background: var(--surface); }
+  .btn-estadisticas:active { transform: scale(0.97); }
+  html[data-theme="oscuro"] .btn-estadisticas { color: #9cc4ff; }
+
   /* ===================================================================
      PANTALLA: JUEGO — HUD
      =================================================================== */
@@ -209,7 +224,7 @@
   .btn:active { transform: scale(0.96); }
 
   /* ===================================================================
-     MODAL: BALANCE DE NIVEL (stats EdTech)
+     MODAL: BALANCE DE NIVEL (stats EdTech por nivel)
      =================================================================== */
   .modal-overlay {
     position: fixed; inset: 0; background: var(--overlay-modal);
@@ -256,6 +271,55 @@
   @media (max-width: 380px) {
     .card { padding: 28px 20px; }
     h1 { font-size: 24px; }
+  }
+
+  /* ===================================================================
+     MÓDULO DE ANALÍTICA NEUROEDUCATIVA — Panel de estadísticas
+     Estética intencionalmente "glass oscuro" (independiente del toggle
+     claro/oscuro general), como los paneles de Salud/Fitness de Apple.
+     =================================================================== */
+  .modal-estadisticas-overlay {
+    position: fixed; inset: 0; z-index: 850;
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+    background: rgba(0,0,0,0.45);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+  }
+  .modal-estadisticas-overlay.activo { opacity: 1; pointer-events: all; }
+
+  .panel-estadisticas {
+    width: 100%; max-width: 420px; max-height: 88vh; overflow-y: auto;
+    background: rgba(30,30,34,0.78);
+    backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 26px; padding: 24px 20px;
+    transform: scale(0.9) translateY(12px);
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    color: #f5f5f7;
+  }
+  .modal-estadisticas-overlay.activo .panel-estadisticas { transform: scale(1) translateY(0); }
+
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .panel-titulo { font-size: 17px; font-weight: 800; }
+
+  .btn-cerrar-panel {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.1); color: #f5f5f7; font-size: 16px; cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease; flex-shrink: 0;
+  }
+  .btn-cerrar-panel:hover { background: rgba(255,255,255,0.18); }
+  .btn-cerrar-panel:active { transform: scale(0.9); }
+
+  .grafico-wrapper { width: 100%; height: 200px; margin-bottom: 14px; position: relative; }
+
+  .sin-datos-texto {
+    text-align: center; color: rgba(245,245,247,0.6); font-size: 13px;
+    padding: 30px 10px; margin-bottom: 14px;
+  }
+
+  .diagnostico-box {
+    background: rgba(255,255,255,0.06); border-radius: 16px; padding: 14px 16px;
+    font-size: 13px; line-height: 1.55; color: #e4e4e7;
+    border-left: 3px solid var(--azul);
   }
 </style>
 </head>
@@ -306,6 +370,8 @@
           <div class="modo-flecha">→</div>
         </button>
       </div>
+
+      <button class="btn-estadisticas" onclick="abrirPanelEstadisticas()">📊 Ver Estadísticas</button>
     </div>
 
     <!-- ============ PANTALLA: JUEGO ============ -->
@@ -376,6 +442,23 @@
   </div>
 </div>
 
+<!-- ============ MODAL: ANALÍTICA NEUROEDUCATIVA ============ -->
+<div class="modal-estadisticas-overlay" id="modal-estadisticas-overlay">
+  <div class="panel-estadisticas">
+    <div class="panel-header">
+      <div class="panel-titulo">📊 Tu Progreso Cognitivo</div>
+      <button class="btn-cerrar-panel" onclick="cerrarPanelEstadisticas()" aria-label="Cerrar">×</button>
+    </div>
+
+    <div class="grafico-wrapper" id="grafico-wrapper">
+      <canvas id="grafico-rendimiento"></canvas>
+    </div>
+    <p class="sin-datos-texto" id="sin-datos-mensaje" style="display:none;">Aún no hay partidas registradas en este dispositivo.</p>
+
+    <div class="diagnostico-box" id="texto-diagnostico">Completa tu primera partida para comenzar a registrar tu actividad cerebral.</div>
+  </div>
+</div>
+
 <script>
 /* =====================================================================
    ARQUITECTURA DE ESTADOS:
@@ -383,8 +466,6 @@
    -> modal de balance de nivel -> (siguiente nivel | pantalla final)
    ===================================================================== */
 
-// ---------- Configuración por modo de dificultad ----------
-// grid = lado de la cuadrícula (3, 4 ó 5). Cada modo tiene 3 niveles progresivos.
 const CONFIG_MODOS = {
   novato:  { etiqueta: 'Novato',  grid: 3, anchoCard: 440, niveles: { 1:{cant:1,tiempo:4500}, 2:{cant:2,tiempo:5500}, 3:{cant:3,tiempo:6500} } },
   experto: { etiqueta: 'Experto', grid: 4, anchoCard: 480, niveles: { 1:{cant:3,tiempo:6000}, 2:{cant:4,tiempo:7200}, 3:{cant:5,tiempo:8400} } },
@@ -396,7 +477,6 @@ const TOTAL_NIVELES = 3;
 const PUNTOS_ACIERTO = 100;
 const PENALIZACION_ERROR = 50;
 
-// ---------- Estado global ----------
 let estado = {
   modo: null,
   grid: 3,
@@ -406,15 +486,38 @@ let estado = {
   emojiObjetivo: null,
   posicionObjetivo: null,
   bloqueado: false,
-  intentosNivel: 0,     // intentos (aciertos+fallos) dentro del nivel actual
-  totalIntentos: 0,     // acumulado de toda la partida
-  totalErrores: 0,      // acumulado de toda la partida
-  animBarra: null,       // referencia a la animación Web Animations API
+  intentosNivel: 0,
+  totalIntentos: 0,
+  totalErrores: 0,
+  animBarra: null,
   timeoutMemorizacion: null,
   tema: 'claro'
 };
 
 let audioCtx = null;
+let chartRendimiento = null;
+
+// =====================================================================
+// PERSISTENCIA DE DATOS (localStorage Real con Control de Errores)
+// =====================================================================
+function obtenerHistoricoPartidas() {
+  try {
+    const datos = localStorage.getItem('historico_neuro_memoria');
+    return datos ? JSON.parse(datos) : [];
+  } catch (e) {
+    console.error("Error leyendo localStorage, simulando en memoria:", e);
+    return window.historicoRespaldoMemoria || [];
+  }
+}
+
+function guardarHistoricoPartidas(nuevoHistorico) {
+  try {
+    localStorage.setItem('historico_neuro_memoria', JSON.stringify(nuevoHistorico));
+  } catch (e) {
+    console.error("Error escribiendo en localStorage:", e);
+    window.historicoRespaldoMemoria = nuevoHistorico;
+  }
+}
 
 // ---------- Referencias DOM ----------
 const elCard = document.getElementById('card-principal');
@@ -440,7 +543,6 @@ function obtenerAudioCtx() {
   return audioCtx;
 }
 
-// Sonido agudo y armónico para aciertos (dos notas ascendentes en sine)
 function sonidoCorrecto() {
   const ctx = obtenerAudioCtx();
   const ahora = ctx.currentTime;
@@ -458,7 +560,6 @@ function sonidoCorrecto() {
   });
 }
 
-// Sonido grave y disonante para errores (dos frecuencias cercanas = "beating")
 function sonidoError() {
   const ctx = obtenerAudioCtx();
   const ahora = ctx.currentTime;
@@ -502,7 +603,7 @@ function alternarTema() {
 }
 
 // =====================================================================
-// CONSTRUCCIÓN DE CUADRÍCULA DINÁMICA (3x3 / 4x4 / 5x5)
+// CONSTRUCCIÓN DE CUADRÍCULA DINÁMICA
 // =====================================================================
 function construirTableroVacio(grid) {
   elTablero.innerHTML = '';
@@ -524,7 +625,6 @@ function construirTableroVacio(grid) {
   }
 }
 
-// Delegación de eventos: un solo listener para toda la cuadrícula
 elTablero.addEventListener('click', function (e) {
   const celdaEl = e.target.closest('.celda');
   if (!celdaEl || estado.bloqueado || estado.posicionObjetivo === null) return;
@@ -535,7 +635,7 @@ elTablero.addEventListener('click', function (e) {
 // FLUJO PRINCIPAL DEL JUEGO
 // =====================================================================
 function seleccionarModo(modo) {
-  obtenerAudioCtx(); // inicializa/reanuda audio en el primer gesto del usuario
+  obtenerAudioCtx();
 
   const config = CONFIG_MODOS[modo];
   estado.modo = modo;
@@ -558,13 +658,11 @@ function actualizarHud() {
   elHudPuntaje.textContent = estado.puntaje;
 }
 
-// Inicia un nivel NUEVO (resetea el contador de intentos del nivel)
 function iniciarNivel() {
   estado.intentosNivel = 0;
   prepararRonda();
 }
 
-// Reinicia el MISMO nivel tras un fallo (conserva el contador de intentos)
 function reintentarNivel() {
   prepararRonda();
 }
@@ -586,18 +684,15 @@ function prepararRonda() {
   entrarEstadoMemorizacion(config.tiempo);
 }
 
-// ---------- ESTADO: MEMORIZACIÓN ----------
 function entrarEstadoMemorizacion(tiempoMs) {
   elInstruccion.textContent = 'Memoriza la posición...';
 
-  // Voltear (flip 3D) las cartas activas para mostrar sus emojis
   estado.celdasActivas.forEach(item => {
     const celda = elTablero.querySelector(`[data-posicion="${item.posicion}"]`);
     celda.querySelector('.cara-trasera').textContent = item.emoji;
     celda.classList.add('flip');
   });
 
-  // Temporizador visual fluido usando la Web Animations API (.animate())
   if (estado.animBarra) estado.animBarra.cancel();
   elBarraTiempo.style.transform = 'scaleX(1)';
   estado.animBarra = elBarraTiempo.animate(
@@ -609,7 +704,6 @@ function entrarEstadoMemorizacion(tiempoMs) {
   estado.timeoutMemorizacion = setTimeout(ocultarEmojisYPreguntar, tiempoMs);
 }
 
-// ---------- ESTADO: PREGUNTA ----------
 function ocultarEmojisYPreguntar() {
   estado.celdasActivas.forEach(item => {
     const celda = elTablero.querySelector(`[data-posicion="${item.posicion}"]`);
@@ -624,7 +718,6 @@ function ocultarEmojisYPreguntar() {
   estado.bloqueado = false;
 }
 
-// ---------- ESTADO: FEEDBACK + PENALIZACIÓN ----------
 function manejarRespuesta(posicionElegida) {
   estado.bloqueado = true;
   estado.intentosNivel++;
@@ -653,11 +746,9 @@ function manejarRespuesta(posicionElegida) {
     estado.totalErrores++;
     celdaElegida.classList.add('incorrecta');
 
-    // Revela dónde estaba la respuesta correcta
     celdaObjetivo.querySelector('.cara-trasera').textContent = estado.emojiObjetivo;
     celdaObjetivo.classList.add('flip', 'correcta');
 
-    // Penalización: -50 puntos, nunca por debajo de 0
     estado.puntaje = Math.max(0, estado.puntaje - PENALIZACION_ERROR);
     actualizarHud();
 
@@ -669,9 +760,12 @@ function manejarRespuesta(posicionElegida) {
   }
 }
 
-// ---------- BALANCE DE NIVEL (modal de stats EdTech) ----------
 function finalizarNivelConExito() {
   const precision = Math.round((1 / estado.intentosNivel) * 100);
+
+  // Módulo de Analítica: Almacenamiento persistente
+  registrarResultadoNivel(precision);
+
   document.getElementById('modal-intentos').textContent = estado.intentosNivel;
   document.getElementById('modal-precision').textContent = precision + '%';
 
@@ -693,7 +787,6 @@ function avanzarSiguienteNivel() {
   }
 }
 
-// ---------- SISTEMA DE RANGOS HONORÍFICOS ----------
 function calcularRango(errores) {
   if (errores === 0) return { titulo: 'Mente Brillante', icono: '🧠✨' };
   if (errores <= 2) return { titulo: 'Concentración de Acero', icono: '🛡️' };
@@ -701,7 +794,6 @@ function calcularRango(errores) {
   return { titulo: 'Espíritu Imparable', icono: '🔥' };
 }
 
-// ---------- PANTALLA FINAL ----------
 function mostrarPantallaFinal() {
   const rango = calcularRango(estado.totalErrores);
   const precisionGeneral = Math.round((TOTAL_NIVELES / estado.totalIntentos) * 100);
@@ -716,7 +808,6 @@ function mostrarPantallaFinal() {
   lanzarConfeti();
 }
 
-// ---------- CONFETI (100% CSS/JS, sin librerías) ----------
 function lanzarConfeti() {
   const contenedor = document.createElement('div');
   contenedor.className = 'confeti-contenedor';
@@ -741,13 +832,155 @@ function lanzarConfeti() {
   setTimeout(() => contenedor.remove(), 4600);
 }
 
-// ---------- VOLVER AL INICIO / REINICIAR ----------
 function volverAInicio() {
   clearTimeout(estado.timeoutMemorizacion);
   if (estado.animBarra) estado.animBarra.cancel();
   elModalNivel.classList.remove('activo');
   elCard.style.maxWidth = '440px';
   cambiarPantalla(elPantallaInicio);
+}
+
+// =====================================================================
+// MÓDULO DE ANALÍTICA NEUROEDUCATIVA Y PROGRESO COGNITIVO
+// =====================================================================
+
+function obtenerEtiquetaModo(claveModo) {
+  return CONFIG_MODOS[claveModo] ? CONFIG_MODOS[claveModo].etiqueta : claveModo;
+}
+
+function formatearFechaCompacta() {
+  const ahora = new Date();
+  const dia = String(ahora.getDate()).padStart(2, '0');
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+  const hora = String(ahora.getHours()).padStart(2, '0');
+  const min = String(ahora.getMinutes()).padStart(2, '0');
+  return `${dia}/${mes} ${hora}:${min}`;
+}
+
+function registrarResultadoNivel(precision) {
+  const historico = obtenerHistoricoPartidas();
+  historico.push({
+    fecha: formatearFechaCompacta(),
+    modo: obtenerEtiquetaModo(estado.modo),
+    nivel: estado.nivelActual,
+    precision: precision
+  });
+  guardarHistoricoPartidas(historico);
+}
+
+function abrirPanelEstadisticas() {
+  const historico = obtenerHistoricoPartidas();
+  const hayDatos = historico.length > 0;
+  
+  document.getElementById('grafico-wrapper').style.display = hayDatos ? 'block' : 'none';
+  document.getElementById('sin-datos-mensaje').style.display = hayDatos ? 'none' : 'block';
+
+  if (hayDatos) dibujarGraficoRendimiento(historico);
+  mostrarDiagnostico(historico);
+
+  document.getElementById('modal-estadisticas-overlay').classList.add('activo');
+}
+
+function cerrarPanelEstadisticas() {
+  document.getElementById('modal-estadisticas-overlay').classList.remove('activo');
+}
+
+function dibujarGraficoRendimiento(historico) {
+  if (typeof Chart === 'undefined') {
+    document.getElementById('grafico-wrapper').innerHTML = '<p class="sin-datos-texto">No se pudo cargar la librería de gráficos. Revisa tu conexión.</p>';
+    return;
+  }
+
+  const canvas = document.getElementById('grafico-rendimiento');
+  const ctx = canvas.getContext('2d');
+
+  if (chartRendimiento) chartRendimiento.destroy();
+
+  const datos = historico.slice(-15); // Filtro responsivo para móviles
+  const etiquetas = datos.map((_, i) => 'Partida ' + (i + 1));
+  const valores = datos.map(r => r.precision);
+
+  chartRendimiento = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: etiquetas,
+      datasets: [{
+        label: 'Precisión de Retención (%)',
+        data: valores,
+        borderWidth: 3,
+        tension: 0.35,
+        pointRadius: 4,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: '#0a84ff',
+        pointBorderWidth: 2,
+        fill: true,
+        segment: {
+          borderColor: (ctxSeg) => ctxSeg.p1.parsed.y >= ctxSeg.p0.parsed.y ? '#34c759' : '#ff9f0a'
+        },
+        backgroundColor: (context) => {
+          const { ctx: c, chartArea } = context.chart;
+          if (!chartArea) return 'rgba(52,199,89,0.12)';
+          const gradiente = c.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+          gradiente.addColorStop(0, 'rgba(52,199,89,0)');
+          gradiente.addColorStop(1, 'rgba(52,199,89,0.22)');
+          return gradiente;
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,0.07)' },
+          ticks: { color: 'rgba(245,245,247,0.6)', font: { size: 10 }, stepSize: 25, callback: v => v + '%' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: 'rgba(245,245,247,0.6)', font: { size: 10 }, maxRotation: 0, autoSkip: true }
+        }
+      }
+    }
+  });
+}
+
+function analizarTendencia(historico) {
+  if (historico.length === 0) return 'sin-datos';
+
+  const ultimos = historico.slice(-5).map(r => r.precision);
+  if (ultimos.length < 2) return 'positiva';
+
+  const diferencias = [];
+  for (let i = 1; i < ultimos.length; i++) diferencias.push(ultimos[i] - ultimos[i - 1]);
+
+  const varianzaPromedio = diferencias.reduce((a, d) => a + Math.abs(d), 0) / diferencias.length;
+  const ultimasDosNegativas = diferencias.length >= 2 &&
+    diferencias[diferencias.length - 1] < 0 && diferencias[diferencias.length - 2] < 0;
+
+  if (ultimasDosNegativas) return 'fatiga';
+  if (varianzaPromedio >= 25) return 'volatil';
+
+  const mitad = Math.ceil(ultimos.length / 2);
+  const promPrimera = ultimos.slice(0, mitad).reduce((a, b) => a + b, 0) / mitad;
+  const restantes = ultimos.length - mitad || 1;
+  const promSegunda = ultimos.slice(mitad).reduce((a, b) => a + b, 0) / restantes;
+
+  return promSegunda >= promPrimera ? 'positiva' : 'fatiga';
+}
+
+const MENSAJES_DIAGNOSTICO = {
+  'positiva': '¡Atención de élite! Tu corteza prefrontal está mostrando una excelente retención a corto plazo. Sigue así y desafía el Modo Genio.',
+  'volatil': 'Tu retención es buena pero muy volátil. Intenta parpadear conscientemente antes de que se oculten los emojis para fijar la imagen mental.',
+  'fatiga': 'Alerta de fatiga cognitiva. Tu precisión ha disminuido. La neurociencia recomienda tomar un descanso de 2 minutos para limpiar los receptores de adenosina antes de volver a entrenar.',
+  'sin-datos': 'Completa tu primera partida para comenzar a registrar tu actividad cerebral.'
+};
+
+function mostrarDiagnostico(historico) {
+  const tendencia = analizarTendencia(historico);
+  document.getElementById('texto-diagnostico').textContent = MENSAJES_DIAGNOSTICO[tendencia];
 }
 </script>
 
