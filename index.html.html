@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Entrena tu Memoria</title>
+<style>
+  /* ===================================================================
+     RESET Y VARIABLES DE TEMA (claro / oscuro vía atributo data-theme)
+     =================================================================== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --azul: #0a84ff;
+    --azul-oscuro: #0058cc;
+    --morado: #8b5cf6;
+    --morado-oscuro: #6d28d9;
+    --card-bg: #ffffff;
+    --surface: #f5f5f7;
+    --text-primary: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --verde: #34c759;
+    --rojo: #ff3b30;
+    --sombra: 0 8px 30px rgba(0,0,0,0.08);
+    --bg-grad: linear-gradient(135deg, #eef1ff 0%, #f5eaff 50%, #eaf3ff 100%);
+    --overlay-modal: rgba(20,20,30,0.45);
+  }
+
+  html[data-theme="oscuro"] {
+    --card-bg: #1c1c1e;
+    --surface: #2c2c2e;
+    --text-primary: #f5f5f7;
+    --text-secondary: #a1a1a6;
+    --sombra: 0 8px 34px rgba(0,0,0,0.55);
+    --bg-grad: linear-gradient(135deg, #0f0f1e 0%, #1a1430 50%, #0f1a2e 100%);
+    --overlay-modal: rgba(0,0,0,0.65);
+  }
+
+  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif; }
+
+  body {
+    background: var(--bg-grad);
+    transition: background 0.45s ease;
+    overflow-x: hidden;
+  }
+
+  #app { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 26px 16px; }
+
+  .texto-gradiente {
+    background: linear-gradient(90deg, var(--azul), var(--morado));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* ===================================================================
+     BOTÓN DE TEMA (esquina superior, fijo respecto al viewport)
+     =================================================================== */
+  .toggle-tema {
+    position: fixed; top: 16px; right: 16px; z-index: 700;
+    width: 44px; height: 44px; border-radius: 50%; border: none;
+    background: var(--card-bg); box-shadow: var(--sombra);
+    font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: transform 0.25s ease, background 0.4s ease;
+  }
+  .toggle-tema:hover { transform: scale(1.1) rotate(12deg); }
+  .toggle-tema:active { transform: scale(0.92); }
+
+  /* ===================================================================
+     TARJETA CONTENEDORA PRINCIPAL
+     =================================================================== */
+  .card {
+    background: var(--card-bg);
+    border-radius: 28px;
+    box-shadow: var(--sombra);
+    width: 100%;
+    max-width: 440px;
+    padding: 38px 30px;
+    text-align: center;
+    position: relative;
+    transition: background 0.4s ease, max-width 0.35s ease;
+    animation: apareceCard 0.5s ease;
+  }
+
+  @keyframes apareceCard {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .pantalla { display: none; }
+  .pantalla.activa { display: block; animation: apareceCard 0.4s ease; }
+
+  /* ===================================================================
+     PANTALLA: INICIO
+     =================================================================== */
+  .logo-icono { font-size: 52px; margin-bottom: 6px; display: inline-block; animation: flotar 3s ease-in-out infinite; }
+  @keyframes flotar { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+
+  .subtitulo { color: var(--text-secondary); font-size: 14.5px; line-height: 1.5; margin-bottom: 22px; padding: 0 2px; }
+
+  .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 26px; }
+  .badge { background: var(--surface); color: var(--azul-oscuro); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 100px; transition: background 0.4s ease; }
+  html[data-theme="oscuro"] .badge { color: #9cc4ff; }
+
+  /* Selector de modo / dificultad */
+  .modos-grid { display: flex; flex-direction: column; gap: 11px; }
+
+  .modo-card {
+    display: flex; align-items: center; gap: 13px;
+    padding: 14px 16px; border-radius: 18px;
+    background: var(--surface); border: 1.5px solid transparent;
+    cursor: pointer; text-align: left; width: 100%;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    font-family: inherit;
+  }
+  .modo-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(99,91,255,0.18); border-color: var(--azul); }
+  .modo-card:active { transform: scale(0.97); }
+
+  .modo-icono-circulo { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .modo-novato .modo-icono-circulo { background: linear-gradient(145deg, #0a84ff, #5fb0ff); }
+  .modo-experto .modo-icono-circulo { background: linear-gradient(145deg, #5b6dff, #8b5cf6); }
+  .modo-genio .modo-icono-circulo { background: linear-gradient(145deg, #8b5cf6, #6d28d9); }
+
+  .modo-info { flex: 1; }
+  .modo-nombre { font-weight: 800; font-size: 15.5px; color: var(--text-primary); }
+  .modo-desc { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+  .modo-flecha { color: var(--text-secondary); font-size: 17px; }
+
+  /* ===================================================================
+     PANTALLA: JUEGO — HUD
+     =================================================================== */
+  .hud { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 8px; }
+
+  .btn-back {
+    width: 36px; height: 36px; border-radius: 50%; border: none;
+    background: var(--surface); color: var(--text-primary);
+    font-size: 16px; cursor: pointer; flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+  .btn-back:active { transform: scale(0.9); }
+
+  .hud-centro { text-align: center; flex: 1; }
+  .hud-modo-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
+  .hud-nivel-label { font-size: 15px; font-weight: 800; color: var(--text-primary); }
+
+  .hud-puntaje-cont { text-align: right; }
+  .hud-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  .hud-valor { font-size: 19px; font-weight: 800; color: var(--text-primary); }
+
+  /* Barra de tiempo (animada vía Web Animations API en JS) */
+  .barra-tiempo-cont { height: 6px; background: var(--surface); border-radius: 100px; overflow: hidden; margin-bottom: 20px; }
+  .barra-tiempo { height: 100%; width: 100%; background: linear-gradient(90deg, var(--azul), var(--morado)); border-radius: 100px; transform-origin: left center; }
+
+  .instruccion { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; min-height: 24px; }
+  .instruccion .emoji-objetivo { font-size: 21px; vertical-align: middle; }
+
+  /* ===================================================================
+     TABLERO DINÁMICO (3x3 / 4x4 / 5x5) + EFECTO FLIP 3D
+     =================================================================== */
+  .tablero { display: grid; margin-bottom: 6px; }
+
+  .celda-contenedor { perspective: 700px; aspect-ratio: 1 / 1; }
+
+  .celda {
+    width: 100%; height: 100%; position: relative;
+    transform-style: preserve-3d; cursor: pointer;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .celda.flip { transform: rotateY(180deg); }
+
+  .cara {
+    position: absolute; inset: 0; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    backface-visibility: hidden; transition: background 0.25s ease, border-color 0.25s ease;
+    border: 2px solid transparent;
+  }
+  .cara-frontal { background: var(--surface); color: var(--text-secondary); font-size: 18px; }
+  .cara-trasera { background: linear-gradient(145deg, #e8ecff, #f1e9ff); transform: rotateY(180deg); }
+
+  /* Tamaños de fuente y separación según densidad de cuadrícula */
+  .tablero[data-cols="3"] { gap: 10px; }
+  .tablero[data-cols="3"] .cara { font-size: clamp(26px, 9vw, 38px); }
+  .tablero[data-cols="4"] { gap: 8px; }
+  .tablero[data-cols="4"] .cara { font-size: clamp(20px, 7vw, 30px); }
+  .tablero[data-cols="5"] { gap: 6px; }
+  .tablero[data-cols="5"] .cara { font-size: clamp(15px, 5.5vw, 24px); border-radius: 10px; }
+
+  .celda.correcta .cara-trasera { background: #d9f7e3 !important; border-color: var(--verde) !important; animation: pulso 0.4s ease; }
+  .celda.incorrecta .cara-frontal { background: #ffe1de !important; border-color: var(--rojo) !important; animation: sacudir 0.4s ease; }
+
+  @keyframes pulso { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+  @keyframes sacudir { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+  .mensaje-feedback { font-size: 14px; font-weight: 700; margin-top: 14px; min-height: 20px; }
+  .mensaje-feedback.ok { color: var(--verde); }
+  .mensaje-feedback.error { color: var(--rojo); }
+
+  /* ===================================================================
+     BOTONES GENERALES
+     =================================================================== */
+  .btn {
+    border: none; border-radius: 16px; padding: 15px 28px; font-size: 16px;
+    font-weight: 700; cursor: pointer; color: #ffffff;
+    background: linear-gradient(90deg, var(--azul), var(--morado));
+    width: 100%; box-shadow: 0 6px 18px rgba(99,91,255,0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { box-shadow: 0 8px 24px rgba(99,91,255,0.42); transform: translateY(-1px); }
+  .btn:active { transform: scale(0.96); }
+
+  /* ===================================================================
+     MODAL: BALANCE DE NIVEL (stats EdTech)
+     =================================================================== */
+  .modal-overlay {
+    position: fixed; inset: 0; background: var(--overlay-modal);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 800;
+  }
+  .modal-overlay.activo { opacity: 1; pointer-events: all; }
+
+  .modal-contenido {
+    background: var(--card-bg); border-radius: 24px; padding: 30px 26px;
+    max-width: 320px; width: 100%; text-align: center;
+    transform: scale(0.85) translateY(10px); transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .modal-overlay.activo .modal-contenido { transform: scale(1) translateY(0); }
+
+  .modal-icono { font-size: 46px; margin-bottom: 6px; }
+  .modal-titulo { font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; }
+
+  .stats-fila { display: flex; gap: 10px; margin-bottom: 22px; }
+  .stat-box { flex: 1; background: var(--surface); border-radius: 14px; padding: 14px 6px; transition: background 0.4s ease; }
+  .stat-valor { font-size: 21px; font-weight: 800; color: var(--text-primary); }
+  .stat-label { font-size: 10.5px; color: var(--text-secondary); margin-top: 3px; font-weight: 600; line-height: 1.3; }
+
+  /* ===================================================================
+     PANTALLA: FINAL (rango honorífico + confeti)
+     =================================================================== */
+  .rango-icono { font-size: 58px; margin-bottom: 4px; animation: aparecerTrofeo 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes aparecerTrofeo { from { transform: scale(0) rotate(-15deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .rango-titulo { font-size: 21px; font-weight: 800; margin-bottom: 4px; }
+  .puntaje-final { font-size: 42px; font-weight: 800; margin: 4px 0 2px; }
+  .puntaje-label { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+
+  /* ===================================================================
+     CONFETI (generado 100% por JS/CSS, sin librerías)
+     =================================================================== */
+  .confeti-contenedor { position: fixed; inset: 0; pointer-events: none; z-index: 999; overflow: hidden; }
+  .confeti-pieza { position: absolute; top: -20px; border-radius: 2px; opacity: 0.95; animation: caerConfeti linear forwards; }
+  @keyframes caerConfeti {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(112vh) rotate(var(--rot)); opacity: 0.25; }
+  }
+
+  @media (max-width: 380px) {
+    .card { padding: 28px 20px; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Botón flotante de tema, visible en todas las pantallas -->
+<button class="toggle-tema" id="btn-tema" onclick="alternarTema()" aria-label="Cambiar tema claro/oscuro">🌙</button>
+
+<div id="app">
+  <div class="card" id="card-principal">
+
+    <!-- ============ PANTALLA: INICIO + SELECCIÓN DE DIFICULTAD ============ -->
+    <div class="pantalla activa" id="pantalla-inicio">
+      <div class="logo-icono">🧠</div>
+      <h1 class="texto-gradiente">Entrena tu Memoria</h1>
+      <p class="subtitulo">Memoria visual, atención y concentración. Elige tu nivel de reto y comienza.</p>
+      <div class="badges">
+        <span class="badge">🧩 Memoria visual</span>
+        <span class="badge">🎯 Atención</span>
+        <span class="badge">⚡ Concentración</span>
+      </div>
+
+      <div class="modos-grid">
+        <button class="modo-card modo-novato" onclick="seleccionarModo('novato')">
+          <div class="modo-icono-circulo">🟢</div>
+          <div class="modo-info">
+            <div class="modo-nombre">Modo Novato</div>
+            <div class="modo-desc">Tablero 3×3 · Ideal para iniciar</div>
+          </div>
+          <div class="modo-flecha">→</div>
+        </button>
+
+        <button class="modo-card modo-experto" onclick="seleccionarModo('experto')">
+          <div class="modo-icono-circulo">🟣</div>
+          <div class="modo-info">
+            <div class="modo-nombre">Modo Experto</div>
+            <div class="modo-desc">Tablero 4×4 · Más símbolos en juego</div>
+          </div>
+          <div class="modo-flecha">→</div>
+        </button>
+
+        <button class="modo-card modo-genio" onclick="seleccionarModo('genio')">
+          <div class="modo-icono-circulo">🔵</div>
+          <div class="modo-info">
+            <div class="modo-nombre">Modo Genio</div>
+            <div class="modo-desc">Tablero 5×5 · Máximo reto visual</div>
+          </div>
+          <div class="modo-flecha">→</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ PANTALLA: JUEGO ============ -->
+    <div class="pantalla" id="pantalla-juego">
+      <div class="hud">
+        <button class="btn-back" onclick="volverAInicio()" aria-label="Volver al inicio">←</button>
+        <div class="hud-centro">
+          <div class="hud-modo-label" id="hud-modo">Novato</div>
+          <div class="hud-nivel-label">Nivel <span id="hud-nivel">1</span>/3</div>
+        </div>
+        <div class="hud-puntaje-cont">
+          <div class="hud-label">Puntaje</div>
+          <div class="hud-valor" id="hud-puntaje">0</div>
+        </div>
+      </div>
+
+      <div class="barra-tiempo-cont">
+        <div class="barra-tiempo" id="barra-tiempo"></div>
+      </div>
+
+      <div class="instruccion" id="instruccion">Memoriza la posición...</div>
+
+      <div class="tablero" id="tablero"></div>
+
+      <div class="mensaje-feedback" id="mensaje-feedback"></div>
+    </div>
+
+    <!-- ============ PANTALLA: FINAL ============ -->
+    <div class="pantalla" id="pantalla-fin">
+      <div class="rango-icono" id="fin-rango-icono">🧠</div>
+      <div class="rango-titulo texto-gradiente" id="fin-rango-titulo">Mente Brillante</div>
+      <div class="puntaje-final texto-gradiente" id="fin-puntaje">300</div>
+      <div class="puntaje-label">puntos finales</div>
+
+      <div class="stats-fila">
+        <div class="stat-box">
+          <div class="stat-valor" id="fin-precision">100%</div>
+          <div class="stat-label">Precisión general</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-valor" id="fin-errores">0</div>
+          <div class="stat-label">Errores totales</div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="volverAInicio()">Jugar de nuevo</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ MODAL: BALANCE DE NIVEL ============ -->
+<div class="modal-overlay" id="modal-nivel">
+  <div class="modal-contenido">
+    <div class="modal-icono">✅</div>
+    <div class="modal-titulo">Nivel Completado</div>
+    <div class="stats-fila">
+      <div class="stat-box">
+        <div class="stat-valor" id="modal-intentos">1</div>
+        <div class="stat-label">Intentos realizados</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-valor" id="modal-precision">100%</div>
+        <div class="stat-label">Precisión de Retención</div>
+      </div>
+    </div>
+    <button class="btn" id="btn-continuar-modal" onclick="avanzarSiguienteNivel()">Continuar</button>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   ARQUITECTURA DE ESTADOS:
+   inicio -> (selección de modo) -> memorización -> pregunta -> feedback
+   -> modal de balance de nivel -> (siguiente nivel | pantalla final)
+   ===================================================================== */
+
+// ---------- Configuración por modo de dificultad ----------
+// grid = lado de la cuadrícula (3, 4 ó 5). Cada modo tiene 3 niveles progresivos.
+const CONFIG_MODOS = {
+  novato:  { etiqueta: 'Novato',  grid: 3, anchoCard: 440, niveles: { 1:{cant:1,tiempo:4500}, 2:{cant:2,tiempo:5500}, 3:{cant:3,tiempo:6500} } },
+  experto: { etiqueta: 'Experto', grid: 4, anchoCard: 480, niveles: { 1:{cant:3,tiempo:6000}, 2:{cant:4,tiempo:7200}, 3:{cant:5,tiempo:8400} } },
+  genio:   { etiqueta: 'Genio',   grid: 5, anchoCard: 520, niveles: { 1:{cant:4,tiempo:7500}, 2:{cant:5,tiempo:9000}, 3:{cant:6,tiempo:10500} } }
+};
+
+const EMOJIS_DISPONIBLES = ['⭐','🍎','🚀','🎵','🌈','⚽','🔑','💡','🌸','🐱','🎲','🍀','🔥','🌙','🎯'];
+const TOTAL_NIVELES = 3;
+const PUNTOS_ACIERTO = 100;
+const PENALIZACION_ERROR = 50;
+
+// ---------- Estado global ----------
+let estado = {
+  modo: null,
+  grid: 3,
+  nivelActual: 1,
+  puntaje: 0,
+  celdasActivas: [],
+  emojiObjetivo: null,
+  posicionObjetivo: null,
+  bloqueado: false,
+  intentosNivel: 0,     // intentos (aciertos+fallos) dentro del nivel actual
+  totalIntentos: 0,     // acumulado de toda la partida
+  totalErrores: 0,      // acumulado de toda la partida
+  animBarra: null,       // referencia a la animación Web Animations API
+  timeoutMemorizacion: null,
+  tema: 'claro'
+};
+
+let audioCtx = null;
+
+// ---------- Referencias DOM ----------
+const elCard = document.getElementById('card-principal');
+const elPantallaInicio = document.getElementById('pantalla-inicio');
+const elPantallaJuego = document.getElementById('pantalla-juego');
+const elPantallaFin = document.getElementById('pantalla-fin');
+const elTablero = document.getElementById('tablero');
+const elInstruccion = document.getElementById('instruccion');
+const elBarraTiempo = document.getElementById('barra-tiempo');
+const elMensajeFeedback = document.getElementById('mensaje-feedback');
+const elHudModo = document.getElementById('hud-modo');
+const elHudNivel = document.getElementById('hud-nivel');
+const elHudPuntaje = document.getElementById('hud-puntaje');
+const elModalNivel = document.getElementById('modal-nivel');
+const elBtnTema = document.getElementById('btn-tema');
+
+// =====================================================================
+// AUDIO SINTETIZADO (Web Audio API, sin archivos externos)
+// =====================================================================
+function obtenerAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Sonido agudo y armónico para aciertos (dos notas ascendentes en sine)
+function sonidoCorrecto() {
+  const ctx = obtenerAudioCtx();
+  const ahora = ctx.currentTime;
+  [880, 1318.5].forEach((frecuencia, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = frecuencia;
+    gain.gain.setValueAtTime(0.0001, ahora + i * 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.22, ahora + i * 0.08 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ahora + i * 0.08 + 0.28);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(ahora + i * 0.08);
+    osc.stop(ahora + i * 0.08 + 0.3);
+  });
+}
+
+// Sonido grave y disonante para errores (dos frecuencias cercanas = "beating")
+function sonidoError() {
+  const ctx = obtenerAudioCtx();
+  const ahora = ctx.currentTime;
+  [170, 182].forEach(frecuencia => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = frecuencia;
+    gain.gain.setValueAtTime(0.15, ahora);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ahora + 0.32);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(ahora);
+    osc.stop(ahora + 0.32);
+  });
+}
+
+// =====================================================================
+// UTILIDADES
+// =====================================================================
+function mezclarArray(arr) {
+  const copia = [...arr];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
+function cambiarPantalla(pantalla) {
+  [elPantallaInicio, elPantallaJuego, elPantallaFin].forEach(p => p.classList.remove('activa'));
+  pantalla.classList.add('activa');
+}
+
+// =====================================================================
+// TEMA CLARO / OSCURO
+// =====================================================================
+function alternarTema() {
+  estado.tema = estado.tema === 'claro' ? 'oscuro' : 'claro';
+  document.documentElement.setAttribute('data-theme', estado.tema);
+  elBtnTema.textContent = estado.tema === 'claro' ? '🌙' : '☀️';
+}
+
+// =====================================================================
+// CONSTRUCCIÓN DE CUADRÍCULA DINÁMICA (3x3 / 4x4 / 5x5)
+// =====================================================================
+function construirTableroVacio(grid) {
+  elTablero.innerHTML = '';
+  elTablero.style.gridTemplateColumns = `repeat(${grid}, 1fr)`;
+  elTablero.dataset.cols = grid;
+
+  const totalCeldas = grid * grid;
+  for (let i = 0; i < totalCeldas; i++) {
+    const contenedor = document.createElement('div');
+    contenedor.className = 'celda-contenedor';
+
+    const celda = document.createElement('div');
+    celda.className = 'celda';
+    celda.dataset.posicion = i;
+    celda.innerHTML = '<div class="cara cara-frontal">✦</div><div class="cara cara-trasera"></div>';
+
+    contenedor.appendChild(celda);
+    elTablero.appendChild(contenedor);
+  }
+}
+
+// Delegación de eventos: un solo listener para toda la cuadrícula
+elTablero.addEventListener('click', function (e) {
+  const celdaEl = e.target.closest('.celda');
+  if (!celdaEl || estado.bloqueado || estado.posicionObjetivo === null) return;
+  manejarRespuesta(parseInt(celdaEl.dataset.posicion));
+});
+
+// =====================================================================
+// FLUJO PRINCIPAL DEL JUEGO
+// =====================================================================
+function seleccionarModo(modo) {
+  obtenerAudioCtx(); // inicializa/reanuda audio en el primer gesto del usuario
+
+  const config = CONFIG_MODOS[modo];
+  estado.modo = modo;
+  estado.grid = config.grid;
+  estado.nivelActual = 1;
+  estado.puntaje = 0;
+  estado.totalIntentos = 0;
+  estado.totalErrores = 0;
+
+  elCard.style.maxWidth = config.anchoCard + 'px';
+  elHudModo.textContent = config.etiqueta;
+  actualizarHud();
+
+  cambiarPantalla(elPantallaJuego);
+  iniciarNivel();
+}
+
+function actualizarHud() {
+  elHudNivel.textContent = estado.nivelActual;
+  elHudPuntaje.textContent = estado.puntaje;
+}
+
+// Inicia un nivel NUEVO (resetea el contador de intentos del nivel)
+function iniciarNivel() {
+  estado.intentosNivel = 0;
+  prepararRonda();
+}
+
+// Reinicia el MISMO nivel tras un fallo (conserva el contador de intentos)
+function reintentarNivel() {
+  prepararRonda();
+}
+
+function prepararRonda() {
+  estado.bloqueado = false;
+  elMensajeFeedback.textContent = '';
+  elMensajeFeedback.className = 'mensaje-feedback';
+  construirTableroVacio(estado.grid);
+
+  const config = CONFIG_MODOS[estado.modo].niveles[estado.nivelActual];
+  const totalCeldas = estado.grid * estado.grid;
+
+  const posiciones = mezclarArray([...Array(totalCeldas).keys()]).slice(0, config.cant);
+  const emojisElegidos = mezclarArray(EMOJIS_DISPONIBLES).slice(0, config.cant);
+
+  estado.celdasActivas = posiciones.map((pos, idx) => ({ posicion: pos, emoji: emojisElegidos[idx] }));
+
+  entrarEstadoMemorizacion(config.tiempo);
+}
+
+// ---------- ESTADO: MEMORIZACIÓN ----------
+function entrarEstadoMemorizacion(tiempoMs) {
+  elInstruccion.textContent = 'Memoriza la posición...';
+
+  // Voltear (flip 3D) las cartas activas para mostrar sus emojis
+  estado.celdasActivas.forEach(item => {
+    const celda = elTablero.querySelector(`[data-posicion="${item.posicion}"]`);
+    celda.querySelector('.cara-trasera').textContent = item.emoji;
+    celda.classList.add('flip');
+  });
+
+  // Temporizador visual fluido usando la Web Animations API (.animate())
+  if (estado.animBarra) estado.animBarra.cancel();
+  elBarraTiempo.style.transform = 'scaleX(1)';
+  estado.animBarra = elBarraTiempo.animate(
+    [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }],
+    { duration: tiempoMs, easing: 'linear', fill: 'forwards' }
+  );
+
+  clearTimeout(estado.timeoutMemorizacion);
+  estado.timeoutMemorizacion = setTimeout(ocultarEmojisYPreguntar, tiempoMs);
+}
+
+// ---------- ESTADO: PREGUNTA ----------
+function ocultarEmojisYPreguntar() {
+  estado.celdasActivas.forEach(item => {
+    const celda = elTablero.querySelector(`[data-posicion="${item.posicion}"]`);
+    celda.classList.remove('flip');
+  });
+
+  const elegido = estado.celdasActivas[Math.floor(Math.random() * estado.celdasActivas.length)];
+  estado.emojiObjetivo = elegido.emoji;
+  estado.posicionObjetivo = elegido.posicion;
+
+  elInstruccion.innerHTML = `¿Dónde estaba <span class="emoji-objetivo">${estado.emojiObjetivo}</span>?`;
+  estado.bloqueado = false;
+}
+
+// ---------- ESTADO: FEEDBACK + PENALIZACIÓN ----------
+function manejarRespuesta(posicionElegida) {
+  estado.bloqueado = true;
+  estado.intentosNivel++;
+  estado.totalIntentos++;
+
+  const celdaElegida = elTablero.querySelector(`[data-posicion="${posicionElegida}"]`);
+  const celdaObjetivo = elTablero.querySelector(`[data-posicion="${estado.posicionObjetivo}"]`);
+  const esCorrecta = posicionElegida === estado.posicionObjetivo;
+
+  if (esCorrecta) {
+    sonidoCorrecto();
+    celdaElegida.querySelector('.cara-trasera').textContent = estado.emojiObjetivo;
+    celdaElegida.classList.add('flip', 'correcta');
+
+    estado.puntaje += PUNTOS_ACIERTO;
+    actualizarHud();
+
+    elMensajeFeedback.textContent = '¡Correcto! 🎉';
+    elMensajeFeedback.className = 'mensaje-feedback ok';
+
+    estado.posicionObjetivo = null;
+    setTimeout(finalizarNivelConExito, 700);
+
+  } else {
+    sonidoError();
+    estado.totalErrores++;
+    celdaElegida.classList.add('incorrecta');
+
+    // Revela dónde estaba la respuesta correcta
+    celdaObjetivo.querySelector('.cara-trasera').textContent = estado.emojiObjetivo;
+    celdaObjetivo.classList.add('flip', 'correcta');
+
+    // Penalización: -50 puntos, nunca por debajo de 0
+    estado.puntaje = Math.max(0, estado.puntaje - PENALIZACION_ERROR);
+    actualizarHud();
+
+    elMensajeFeedback.textContent = `No era ahí (−${PENALIZACION_ERROR} pts). ¡Sigue intentando!`;
+    elMensajeFeedback.className = 'mensaje-feedback error';
+
+    estado.posicionObjetivo = null;
+    setTimeout(reintentarNivel, 1300);
+  }
+}
+
+// ---------- BALANCE DE NIVEL (modal de stats EdTech) ----------
+function finalizarNivelConExito() {
+  const precision = Math.round((1 / estado.intentosNivel) * 100);
+  document.getElementById('modal-intentos').textContent = estado.intentosNivel;
+  document.getElementById('modal-precision').textContent = precision + '%';
+
+  const esUltimoNivel = estado.nivelActual >= TOTAL_NIVELES;
+  document.getElementById('btn-continuar-modal').textContent = esUltimoNivel ? 'Ver resultado final' : 'Continuar';
+
+  elModalNivel.classList.add('activo');
+}
+
+function avanzarSiguienteNivel() {
+  elModalNivel.classList.remove('activo');
+
+  if (estado.nivelActual >= TOTAL_NIVELES) {
+    mostrarPantallaFinal();
+  } else {
+    estado.nivelActual++;
+    actualizarHud();
+    iniciarNivel();
+  }
+}
+
+// ---------- SISTEMA DE RANGOS HONORÍFICOS ----------
+function calcularRango(errores) {
+  if (errores === 0) return { titulo: 'Mente Brillante', icono: '🧠✨' };
+  if (errores <= 2) return { titulo: 'Concentración de Acero', icono: '🛡️' };
+  if (errores <= 4) return { titulo: 'Enfoque de Halcón', icono: '🦅' };
+  return { titulo: 'Espíritu Imparable', icono: '🔥' };
+}
+
+// ---------- PANTALLA FINAL ----------
+function mostrarPantallaFinal() {
+  const rango = calcularRango(estado.totalErrores);
+  const precisionGeneral = Math.round((TOTAL_NIVELES / estado.totalIntentos) * 100);
+
+  document.getElementById('fin-rango-icono').textContent = rango.icono;
+  document.getElementById('fin-rango-titulo').textContent = rango.titulo;
+  document.getElementById('fin-puntaje').textContent = estado.puntaje;
+  document.getElementById('fin-precision').textContent = precisionGeneral + '%';
+  document.getElementById('fin-errores').textContent = estado.totalErrores;
+
+  cambiarPantalla(elPantallaFin);
+  lanzarConfeti();
+}
+
+// ---------- CONFETI (100% CSS/JS, sin librerías) ----------
+function lanzarConfeti() {
+  const contenedor = document.createElement('div');
+  contenedor.className = 'confeti-contenedor';
+  document.body.appendChild(contenedor);
+
+  const colores = ['#0a84ff', '#8b5cf6', '#34c759', '#ff9f0a', '#ff3b30', '#ffffff'];
+
+  for (let i = 0; i < 90; i++) {
+    const pieza = document.createElement('div');
+    pieza.className = 'confeti-pieza';
+    const tam = 6 + Math.random() * 6;
+    pieza.style.left = Math.random() * 100 + 'vw';
+    pieza.style.width = tam + 'px';
+    pieza.style.height = tam + 'px';
+    pieza.style.background = colores[Math.floor(Math.random() * colores.length)];
+    pieza.style.animationDuration = (2.4 + Math.random() * 1.6) + 's';
+    pieza.style.animationDelay = (Math.random() * 0.5) + 's';
+    pieza.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+    contenedor.appendChild(pieza);
+  }
+
+  setTimeout(() => contenedor.remove(), 4600);
+}
+
+// ---------- VOLVER AL INICIO / REINICIAR ----------
+function volverAInicio() {
+  clearTimeout(estado.timeoutMemorizacion);
+  if (estado.animBarra) estado.animBarra.cancel();
+  elModalNivel.classList.remove('activo');
+  elCard.style.maxWidth = '440px';
+  cambiarPantalla(elPantallaInicio);
+}
+</script>
+
+</body>
+</html>
